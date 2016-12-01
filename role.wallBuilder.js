@@ -49,7 +49,7 @@ var roleWallBuilder = {
                 //Need to modify such that it's only finding a new thing to rep when the old one isn't valid. The current method is munching through obscene amounts of cpu
                 var wallToBuild = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                     filter: function(object){
-                        return object.structureType == STRUCTURE_WALL && (object.hits < (object.hitsMax * 0.001));
+                        return object.structureType == STRUCTURE_WALL && (object.hits < (object.hitsMax * 0.005));
                     }
                 });
                 

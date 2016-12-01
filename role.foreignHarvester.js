@@ -39,11 +39,12 @@ var roleForeignHarvester = {
                 //Calculate possible dump targets, store one as targetDumpID
                 var targets = creep.room.find(FIND_STRUCTURES, {
                     filter: (structure) => {
-                        return (structure.structureType == STRUCTURE_EXTENSION ||
-                                structure.structureType == STRUCTURE_SPAWN ||
-                                structure.structureType == STRUCTURE_TOWER ) && structure.energy < structure.energyCapacity;
+                        return (((structure.structureType == STRUCTURE_EXTENSION ||
+                                structure.structureType == STRUCTURE_SPAWN)  && structure.energy < structure.energyCapacity) ||
+                                ((structure.structureType == STRUCTURE_CONTAINER) && structure.store[RESOURCE_ENERGY] < structure.storeCapacity))
                     }
                 });
+                //console.log('targets:', targets);
                 
                 if(targets.length == 0) {
                     //On the off-chance no targets are found, treat original spawn as target

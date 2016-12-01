@@ -1,13 +1,27 @@
+/*
+ * Known things to work on:
+ * Nothing is set to repair/fill containers
+ * Nothing is set to use containers to keep towers topped off/in case of emergency
+ * Need to possibly have foreignHarvesters fill containers, and have upgraders grab from that
+ * Really really really need to fix tower code - should eventually also adjust priority
+ * Should look into emergency safe-mode code. (When creeps die & enemy is in room? Need to detect creeps killed by enemy vs naturally)
+ * Could also look into spawning a defender when enemy creeps detected. Maybe just a mass-heal creep (since invaders aren't high dps, could likely permatank)
+ */
+
 var roleHarvester = require('role.harvester');
 var roleUpgrader = require('role.upgrader');
 var roleBuilder = require('role.builder');
 var roleSmartHarvester = require('role.smartHarvester');
 var roleSmartHarvester2 = require('role.smartHarvester2');
 var roleRoadRepairer = require('role.roadRepairer');
+var roleRoadRepairer2 = require('role.roadRepairer2');
 var roleWallBuilder = require('role.wallBuilder');
 var roleClaimer = require('role.claimer');
 var roleForeignHarvester = require('role.foreignHarvester');
 var roleForeignBuilder = require('role.foreignBuilder');
+var roleForeignRoadRepairer = require('role.foreignRoadRepairer');
+var roleAttacker = require('role.attacker');
+var roleRepairer = require('role.repairer');
 
 var friends = ['Ranamar', 'Picti', 'deltosan_kalnikov', 'reify', 'IcyMidnight', 'TheGreatMustashio', 'roflbox'];
 
@@ -44,16 +58,19 @@ module.exports.loop = function () {
     //****************************************
     //New Smart-Spawn(tm) code starts here
     //First get a tally of all workers by type. This can be cleaned up later by making a list and adding workers/types to it when spawned and then deleting when they die (in memory clean-up)
-    var minForeignHarvesters = 2;
-    var minForeignBuilders = 2;
+    var minForeignHarvesters = 6;
+    var minForeignBuilders = 0;
     var minWallRep = 1;
-    var minRoadRep = 2;
-    var minBuilders = 3;
+    var minRoadRep = 1;
+    var minBuilders = 2;
     var minClaimers = 2;
     var minUpgraders = 2;
+    var maxUpgraders = 15;
     var minUpgradersEmergency = 1;
     var minHarvesters = 8;
     var minHarvestersEmergency = 2;
+    var minForeignRoadRep = 1;
+    var minRepairers = 2;
     
     var allCreeps = _.filter(Game.creeps);
     var harvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'smartHarvester2');
@@ -64,11 +81,13 @@ module.exports.loop = function () {
     var wallBuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'wallBuilder');
     var foreignHarvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'foreignHarvester');
     var foreignBuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'foreignBuilder');
+    var foreignRoadRepairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'foreignRoadRepairer');
+    var repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repairer');
     
     if(sendReports) {
         console.log('Autobuild:', autoBuild, 'Energy:', Game.rooms['W1N68'].energyAvailable, '/', Game.rooms['W1N68'].energyCapacityAvailable, ' TotalCreeps:', allCreeps.length, ' Harvesters:', harvesters.length, ' Upgraders:', upgraders.length,
                     ' Claimers:',claimers.length, ' Builders:', builders.length, ' RoadRepairers:', roadRepairers.length, ' WallBuilders:', wallBuilders.length,' ForeignHarvesters:', foreignHarvesters.length,
-                    ' ForeignBuilders', foreignBuilders.length);
+                    ' ForeignBuilders', foreignBuilders.length, ' ForeignRoadRep', foreignRoadRepairers.length, ' Repairers', repairers.length);
 //        console.log('Energy: ' + Game.getObjectById('5837f1f4465957f661f1c052').room.energyAvailable +"/"+Game.getObjectById('5837f1f4465957f661f1c052').room.energyCapacityAvailable);
 //        console.log(Game.rooms.W1N68.name, Game.rooms['W1N68'].name);
     }
@@ -93,6 +112,9 @@ module.exports.loop = function () {
         } else if(upgraders.length < minUpgraders){
             var newName = Game.spawns['Imlaspawn'].createCreep([MOVE,MOVE,MOVE,WORK,WORK,WORK,CARRY,CARRY,CARRY], undefined, {role: 'upgrader'});
             console.log('Spawning new upgrader: ' + newName);
+        } else if(repairers.length < minRepairers){
+            var newName = Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], undefined, {role: 'repairer', repairing: true, needToFindSource: true});
+            console.log('Spawning new repairer: '+ newName)
         } else if(builders.length < minBuilders){
             var newName = Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], undefined, {role: 'builder'});
             console.log('Spawning new builder: ' + newName);
@@ -111,6 +133,9 @@ module.exports.loop = function () {
         }else if(foreignBuilders.length < minForeignBuilders){
             var newName = Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], undefined, {role: 'foreignBuilder', targetRoom: 'W1N67', targetPosX: 25, targetPosY: 1});
             console.log('Spawning new foreign builder: ' + newName);
+        }else if(foreignRoadRepairers.length < minForeignRoadRep){
+            var newName = Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE], undefined, {role: 'foreignRoadRepairer', targetRoom: 'W1N67', targetPosX: 25, targetPosY: 1});
+            console.log('Spawning new foreign road crew: ' + newName);
         }else{
             //Checks to find if everything is full on energy
             //Hard-coded atm to use the room that my main spawner is in
@@ -122,7 +147,7 @@ module.exports.loop = function () {
                 }
             });
             //If everything is full on energy, spawn a new upgrader
-            if(nonFullContainers.length == 0){
+            if(nonFullContainers.length == 0 && upgraders.length < maxUpgraders){
                 var newName = Game.spawns['Imlaspawn'].createCreep([MOVE,MOVE,MOVE,WORK,WORK,WORK,CARRY,CARRY,CARRY], undefined, {role: 'upgrader'});
                 console.log('Energy surpluss! Spawning new upgrader: ' + newName);
             }
@@ -289,6 +314,9 @@ module.exports.loop = function () {
         if(creep.memory.role == 'roadRepairer') {
             roleRoadRepairer.run(creep);
         }
+        if(creep.memory.role == 'roadRepairer2') {
+            roleRoadRepairer2.run(creep);
+        }
         if(creep.memory.role == 'wallBuilder') {
             roleWallBuilder.run(creep);
         }
@@ -300,6 +328,15 @@ module.exports.loop = function () {
         }
         if(creep.memory.role == 'foreignBuilder') {
             roleForeignBuilder.run(creep);
+        }
+        if(creep.memory.role == 'foreignRoadRepairer') {
+            roleForeignRoadRepairer.run(creep);
+        }
+        if(creep.memory.role == 'attacker') {
+            roleAttacker.run(creep);
+        }
+        if(creep.memory.role == 'repairer') {
+            roleRepairer.run(creep);
         }
     }
     

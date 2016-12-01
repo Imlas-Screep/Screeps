@@ -7,9 +7,9 @@
  * mod.thing == 'a thing'; // true
  */
 
-// Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE], undefined, {role: 'roadRepairer', needToFindEnergy: true, needToRepair: false});
+// Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE], undefined, {role: 'roadRepairer2', needToFindEnergy: true, needToRepair: false});
 
-var roleRoadRepairer = {
+var roleRoadRepairer2 = {
     run: function(creep) {
 //        console.log(creep.name, creep.energy);
         if(creep.memory.needToFindEnergy) {
@@ -19,6 +19,13 @@ var roleRoadRepairer = {
                 creep.memory.needToRepair = true;
             }
             else{
+                    var sources = creep.room.find(FIND_SOURCES);
+                    if(creep.harvest(sources[1]) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(sources[1]);
+                    }
+                
+                //Scrapping a "take it from the spawn" approach in favor of just self-mining needed energy
+                /*
                 var spawn = Game.spawns['Imlaspawn'];
                 //var spawn = creep.room.find(FIND_MY_SPAWNS)[0];
                 //console.log(creep.name, creep.room.name, spawn.name);
@@ -32,6 +39,7 @@ var roleRoadRepairer = {
                         creep.memory.needToRepair = true;
                     }
                 }
+                */
             }
         }
         
@@ -42,19 +50,24 @@ var roleRoadRepairer = {
             }
             else{
                 //First attempts to find critically damaged roads
-                var roadToRepair = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                var potentialTargets = creep.room.find(FIND_STRUCTURES, {
                     filter: function(object){
                         return object.structureType == STRUCTURE_ROAD && (object.hits < (object.hitsMax * 0.25));
                     }
                 });
+                //console.log("critical",potentialTargets.length);
+                
+                var roadToRepair = creep.pos.findClosestByPath(potentialTargets);
                 
                 //If it doesn't find anything, get roads that are kinda hurt
                 if(!roadToRepair){
-                    roadToRepair = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                    potentialTargets = creep.room.find(FIND_STRUCTURES, {
                         filter: function(object){
                             return object.structureType == STRUCTURE_ROAD && (object.hits < (object.hitsMax * 0.80));
                         }
                     });
+                    //console.log("notcrit", potentialTargets.length);
+                    roadToRepair = creep.pos.findClosestByPath(potentialTargets);
                 }
                 
                 //If target round, move near to/repair it
@@ -73,4 +86,4 @@ var roleRoadRepairer = {
         
 }
 
-module.exports = roleRoadRepairer;
+module.exports = roleRoadRepairer2;

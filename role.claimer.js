@@ -5,6 +5,14 @@ var roleClaimer = {
 
     /** @param {Creep} creep **/
     run: function(creep) {
+        /*
+        //Random Serialization test - console prints false
+        creep.memory.test = true;
+        creep.memory.test = false;
+        console.log('test:', creep.memory.test);
+        creep.memory.test = true;
+        */
+        
         if(creep.room.name != creep.memory.targetRoom){
             //Head to target room
             var exitDir = Game.map.findExit(creep.room, creep.memory.targetRoom);
