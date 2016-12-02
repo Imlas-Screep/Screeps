@@ -1,8 +1,11 @@
 /*
  * Known things to work on:
- * Nothing is set to repair/fill containers
- * Nothing is set to use containers to keep towers topped off/in case of emergency
- * Need to possibly have foreignHarvesters fill containers, and have upgraders grab from that
+ * Need to look into only making harvesters actually harvest. Have another container or two scattered around and have upgraders/builders/etc pull from that
+ * Possibly have a seperate 'carry' creep that just takes energy from containers and puts it in extensions/spawner/other containers? Wouldn't need WORK objects
+ * -The above is best suited with 'turretHarvesters' (1xMOVE, lots*WORK creeps)
+ * Start using larger creeps - will help alieviate the issues of harvester crowding
+ * Work on code to deal with expansion
+ * For expansion -work on 'turretHarvester' idea
  * Really really really need to fix tower code - should eventually also adjust priority
  * Should look into emergency safe-mode code. (When creeps die & enemy is in room? Need to detect creeps killed by enemy vs naturally)
  * Could also look into spawning a defender when enemy creeps detected. Maybe just a mass-heal creep (since invaders aren't high dps, could likely permatank)
@@ -24,8 +27,6 @@ var roleAttacker = require('role.attacker');
 var roleRepairer = require('role.repairer');
 
 var friends = ['Ranamar', 'Picti', 'deltosan_kalnikov', 'reify', 'IcyMidnight', 'TheGreatMustashio', 'roflbox'];
-
-
 function isFriendly(name){
     var i;
     for (i = 0; i < friends.length; i++){
@@ -38,9 +39,6 @@ function isFriendly(name){
 
 
 module.exports.loop = function () {
-    
-//    var creepOwnerName = 'ULA';
-    //console.log("test:", isFriendly(creepOwnerName));
     
     var autoBuild = true;
     var sendReports = true;
@@ -58,36 +56,41 @@ module.exports.loop = function () {
     //****************************************
     //New Smart-Spawn(tm) code starts here
     //First get a tally of all workers by type. This can be cleaned up later by making a list and adding workers/types to it when spawned and then deleting when they die (in memory clean-up)
-    var minForeignHarvesters = 6;
-    var minForeignBuilders = 0;
+    //Easier clean-up would be to pull Gamme.creeps once and then filter against it repeatedly
+    var minForeignHarvesters1 = 6;
+    var minForeignBuilders1 = 0;
+    var minForeignBuilders2 = 2;
     var minWallRep = 1;
     var minRoadRep = 1;
     var minBuilders = 2;
-    var minClaimers = 2;
+    var minClaimers1 = 2;
+    var minClaimers2 = 2;
     var minUpgraders = 2;
     var maxUpgraders = 15;
     var minUpgradersEmergency = 1;
     var minHarvesters = 8;
     var minHarvestersEmergency = 2;
-    var minForeignRoadRep = 1;
+    var minForeignRoadRep1 = 1;
     var minRepairers = 2;
     
     var allCreeps = _.filter(Game.creeps);
     var harvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'smartHarvester2');
     var upgraders = _.filter(Game.creeps, (creep) => creep.memory.role == 'upgrader');
-    var claimers = _.filter(Game.creeps, (creep) => creep.memory.role == 'claimer');
+    var claimers1 = _.filter(Game.creeps, (creep) => (creep.memory.role == 'claimer' && creep.memory.targetRoom == 'W1N67'));
+    var claimers2 = _.filter(Game.creeps, (creep) => (creep.memory.role == 'claimer' && creep.memory.targetRoom == 'W2N67'));
     var builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder');
     var roadRepairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'roadRepairer');
     var wallBuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'wallBuilder');
-    var foreignHarvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'foreignHarvester');
-    var foreignBuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'foreignBuilder');
-    var foreignRoadRepairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'foreignRoadRepairer');
+    var foreignHarvesters1 = _.filter(Game.creeps, (creep) => (creep.memory.role == 'foreignHarvester' && creep.memory.targetRoom == 'W1N67'));
+    var foreignBuilders1 = _.filter(Game.creeps, (creep) => (creep.memory.role == 'foreignBuilder' && creep.memory.targetRoom == 'W1N67'));
+    var foreignRoadRepairers1 = _.filter(Game.creeps, (creep) => (creep.memory.role == 'foreignRoadRepairer' && creep.memory.targetRoom == 'W1N67'));
     var repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repairer');
+    var foreignBuilders2 = _.filter(Game.creeps, (creep) => (creep.memory.role == 'foreignBuilder' && creep.memory.targetRoom == 'W2N67'));
     
     if(sendReports) {
         console.log('Autobuild:', autoBuild, 'Energy:', Game.rooms['W1N68'].energyAvailable, '/', Game.rooms['W1N68'].energyCapacityAvailable, ' TotalCreeps:', allCreeps.length, ' Harvesters:', harvesters.length, ' Upgraders:', upgraders.length,
-                    ' Claimers:',claimers.length, ' Builders:', builders.length, ' RoadRepairers:', roadRepairers.length, ' WallBuilders:', wallBuilders.length,' ForeignHarvesters:', foreignHarvesters.length,
-                    ' ForeignBuilders', foreignBuilders.length, ' ForeignRoadRep', foreignRoadRepairers.length, ' Repairers', repairers.length);
+                    ' Claimers:', (claimers1.length + claimers2.length), ' Builders:', builders.length, ' RoadRepairers:', roadRepairers.length, ' WallBuilders:', wallBuilders.length,' ForeignHarvesters:', foreignHarvesters1.length,
+                    ' ForeignBuilders', (foreignBuilders1.length + foreignBuilders2.length), ' ForeignRoadRep', foreignRoadRepairers1.length, ' Repairers', repairers.length);
 //        console.log('Energy: ' + Game.getObjectById('5837f1f4465957f661f1c052').room.energyAvailable +"/"+Game.getObjectById('5837f1f4465957f661f1c052').room.energyCapacityAvailable);
 //        console.log(Game.rooms.W1N68.name, Game.rooms['W1N68'].name);
     }
@@ -124,16 +127,22 @@ module.exports.loop = function () {
         } else if(roadRepairers.length < minRoadRep){
             var newName = Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE], undefined, {role: 'roadRepairer', needToFindEnergy: true, needToRepair: false});
             console.log('Spawning new road crew: ' + newName);
-        } else if(claimers.length < minClaimers){
+        } else if(claimers1.length < minClaimers1){
             var newName = Game.spawns['Imlaspawn'].createCreep([CLAIM,MOVE,MOVE], undefined, {role: 'claimer', targetRoom: 'W1N67'});
             console.log('Spawning new claimer:', newName);
-        }else if(foreignHarvesters.length < minForeignHarvesters){
+        } else if(claimers2.length < minClaimers2){
+            var newName = Game.spawns['Imlaspawn'].createCreep([CLAIM,MOVE,MOVE], undefined, {role: 'claimer', targetRoom: 'W2N67'});
+            console.log('Spawning new claimer:', newName);
+        }else if(foreignHarvesters1.length < minForeignHarvesters1){
             var newName = Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], undefined, {role: 'foreignHarvester', homeRoom: 'W1N68', targetRoom: 'W1N67', targetPosX: 25, targetPosY: 1});
             console.log('Spawning new foreign harvester: ' + newName);
-        }else if(foreignBuilders.length < minForeignBuilders){
+        }else if(foreignBuilders1.length < minForeignBuilders1){
             var newName = Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], undefined, {role: 'foreignBuilder', targetRoom: 'W1N67', targetPosX: 25, targetPosY: 1});
             console.log('Spawning new foreign builder: ' + newName);
-        }else if(foreignRoadRepairers.length < minForeignRoadRep){
+        }else if(foreignBuilders2.length < minForeignBuilders2){
+            var newName = Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], undefined, {role: 'foreignBuilder', targetRoom: 'W2N67', targetPosX: 48, targetPosY: 18});
+            console.log('Spawning new foreign builder: ' + newName);
+        }else if(foreignRoadRepairers1.length < minForeignRoadRep1){
             var newName = Game.spawns['Imlaspawn'].createCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE], undefined, {role: 'foreignRoadRepairer', targetRoom: 'W1N67', targetPosX: 25, targetPosY: 1});
             console.log('Spawning new foreign road crew: ' + newName);
         }else{

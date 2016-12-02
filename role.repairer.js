@@ -34,10 +34,11 @@ var roleRepairer = {
             
             //Attempts to only find a new source if it hasn't found one
             if(creep.memory.needToFindSource){
-                var sources = creep.room.find(FIND_MY_STRUCTURES, {
+                var sources = creep.room.find(FIND_STRUCTURES, {
                     filter: (structure) => {
-                        return (structure.structureType ==  STRUCTURE_CONTAINER ||
-                                structure.structureType == STRUCTURE_SPAWN) && structure.energy > 0;
+                        return (((structure.structureType == STRUCTURE_EXTENSION ||
+                                structure.structureType == STRUCTURE_SPAWN)  && structure.energy < structure.energyCapacity) ||
+                                ((structure.structureType == STRUCTURE_CONTAINER) && structure.store[RESOURCE_ENERGY] < structure.storeCapacity))
                     }
                 });
                 
@@ -130,10 +131,12 @@ var roleRepairer = {
                             creep.memory.needToFindTarget = false;
                         }
                         else{
+                            //EDIT - adding in containers under the 'find roads and repair' logic
+                            //critRoads and modRoads will now include containers
                             //ELSE - find crit roads
                             var critRoads = creep.room.find(FIND_STRUCTURES, {
                                     filter: function(object){
-                                    return object.structureType == STRUCTURE_ROAD && (object.hits < (object.hitsMax * CRIT_PERCENT));
+                                    return (object.structureType == STRUCTURE_ROAD || object.structureType == STRUCTURE_CONTAINER) && (object.hits < (object.hitsMax * CRIT_PERCENT));
                                     }
                             });
                             
@@ -145,13 +148,19 @@ var roleRepairer = {
                                 //ELSE - find non-crit roads
                                 var modRoads = creep.room.find(FIND_STRUCTURES, {
                                         filter: function(object){
-                                        return object.structureType == STRUCTURE_ROAD && (object.hits < (object.hitsMax * MODERATE_PERCENT));
+                                        return (object.structureType == STRUCTURE_ROAD || object.structureType == STRUCTURE_CONTAINER) && (object.hits < (object.hitsMax * MODERATE_PERCENT));
                                         }
                                 });
                                 
                                 if(modRoads.length > 0){
-                                    creep.memory.targetID = creep.pos.findClosestByPath(modRoads).id;
-                                    creep.memory.needToFindTarget = false;
+//                                    console.log('modRoads', modRoads);
+                                    var targetRoad = creep.pos.findClosestByPath(modRoads);
+//                                    console.log('targetRoad', targetRoad);
+                                    if(targetRoad){
+                                        creep.memory.targetID = creep.pos.findClosestByPath(modRoads).id;
+                                        creep.memory.needToFindTarget = false;    
+                                    }
+                                    
                                 }
                                 else{
                                     //Keep searching for targets, space cowboy

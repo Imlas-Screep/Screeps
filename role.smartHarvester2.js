@@ -41,9 +41,9 @@ var roleSmartHarvester2 = {
             //Calculate possible dump targets, store one as targetDumpID
             var targets = creep.room.find(FIND_STRUCTURES, {
                 filter: (structure) => {
-                    return (structure.structureType == STRUCTURE_EXTENSION ||
-                            structure.structureType == STRUCTURE_SPAWN ||
-                            structure.structureType == STRUCTURE_CONTAINER ) && structure.energy < structure.energyCapacity;
+                    return (((structure.structureType == STRUCTURE_EXTENSION ||
+                            structure.structureType == STRUCTURE_SPAWN)  && structure.energy < structure.energyCapacity) ||
+                            ((structure.structureType == STRUCTURE_CONTAINER) && structure.store[RESOURCE_ENERGY] < structure.storeCapacity))
                 }
             });
             
@@ -67,14 +67,15 @@ var roleSmartHarvester2 = {
         
         if(creep.memory.needToDump) {
             //Try to dump, capture errcodes
+//            console.log('dumptarget', Game.getObjectById(creep.memory.targetDumpID));
             var xferResult = creep.transfer(Game.getObjectById(creep.memory.targetDumpID), RESOURCE_ENERGY);
-//            console.log(xferResult);
+//            console.log('result', xferResult);
 
             //If out of range, move closer
             if(xferResult == ERR_NOT_IN_RANGE){
 //                console.log('out of range');
                 //creep.moveTo(Game.getObjectById(creep.memory.targetDumpID),{reusePath:0});
-                var moveResult = creep.moveTo(Game.getObjectById(creep.memory.targetDumpID),{reusePath:5});
+                var moveResult = creep.moveTo(Game.getObjectById(creep.memory.targetDumpID),{reusePath:1});
 //                console.log('moveResult',moveResult);
             } else if(xferResult == ERR_FULL && creep.carry.energy > 0){ //If targetDumpID is full and creep has energy>0, find new dump target (check return codes on the creep.transfer() )
                 creep.memory.needToDump = false;

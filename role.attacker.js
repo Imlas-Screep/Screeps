@@ -1,8 +1,9 @@
-//Game.spawns['Imlaspawn'].createCreep([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK], undefined, {role: 'attacker', targetRoom: 'W2N67', targetPosX: 48, targetPosY: 18});
+//Game.spawns['Imlaspawn'].createCreep([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK], undefined, {role: 'attacker', targetRoom: 'W2N66', targetPosX: 6, targetPosY: 1});
 //For use when there's no walls/defenses of any kind.
 //Ideally would have logic to punch through walls/ramparts.
 
 var friends = ['Ranamar', 'Picti', 'deltosan_kalnikov', 'reify', 'IcyMidnight', 'TheGreatMustashio', 'roflbox'];
+//var friends = ['Ranamar', 'Picti', 'deltosan_kalnikov', 'reify', 'IcyMidnight', 'TheGreatMustashio', 'roflbox', 'Moredread'];
 
 
 function isFriendly(name){
@@ -59,10 +60,12 @@ var roleAttacker = {
                 //Search for hostile structures and attack
                 var hostileStructures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
                     filter: (maybeHostileStructure) => {
-                        return !isFriendly(maybeHostileStructure);
+                        return ((!isFriendly(maybeHostileStructure)) && !(maybeHostileStructure.structureType == STRUCTURE_CONTROLLER));
                     }
                 });
                 closestHostile = creep.pos.findClosestByPath(hostileStructures);
+                
+                console.log('hostile', closestHostile);
                 
                 if(closestHostile){
                     if(!creep.pos.isNearTo(closestHostile)){
